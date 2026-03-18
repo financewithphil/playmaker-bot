@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.config import UPLOAD_DIR, ADMIN_SECRET
 from app.models.document import DocumentChunk, UploadedDocument
-from app.services.pdf_processor import extract_text_from_pdf, chunk_text
+from app.services.pdf_processor import extract_text, chunk_text
 from app.services.embeddings import embed_texts
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
+
+ALLOWED_EXTENSIONS = {".pdf", ".docx"}
 
 
 def verify_admin(x_admin_secret: str = Header(...)):
@@ -15,18 +17,18 @@ def verify_admin(x_admin_secret: str = Header(...)):
         raise HTTPException(status_code=403, detail="Invalid admin secret")
 
 
-@router.post("/pdf")
-async def upload_pdf(
+@router.post("/document")
+async def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     _=Depends(verify_admin),
 ):
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Only {', '.join(ALLOWED_EXTENSIONS)} files are accepted")
 
     existing = db.query(UploadedDocument).filter_by(filename=file.filename).first()
     if existing:
-        # Delete old chunks and re-ingest
         db.query(DocumentChunk).filter_by(document_name=file.filename).delete()
         db.delete(existing)
         db.commit()
@@ -37,12 +39,12 @@ async def upload_pdf(
     with open(file_path, "wb") as f:
         f.write(content)
 
-    text = extract_text_from_pdf(file_path)
+    text = extract_text(file_path)
     chunks = chunk_text(text)
 
     if not chunks:
         os.remove(file_path)
-        raise HTTPException(status_code=400, detail="No text content found in PDF")
+        raise HTTPException(status_code=400, detail="No text content found in file")
 
     embeddings = embed_texts(chunks)
 
@@ -65,6 +67,16 @@ async def upload_pdf(
         "message": f"Successfully ingested '{file.filename}'",
         "chunks_created": len(chunks),
     }
+
+
+# Keep old endpoint for backwards compat
+@router.post("/pdf")
+async def upload_pdf(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _=Depends(verify_admin),
+):
+    return await upload_document(file=file, db=db, _=_)
 
 
 @router.get("/documents")
