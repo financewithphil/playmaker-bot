@@ -1,0 +1,41 @@
+databases:
+  - name: playmaker-bot-db
+    plan: starter
+    databaseName: playmaker_bot
+    postgresMajorVersion: 16
+    ipAllowList: []
+
+services:
+  - type: web
+    name: playmaker-bot-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: playmaker-bot-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_SECRET
+        generateValue: true
+    healthCheckPath: /api/health
+
+  - type: web
+    name: playmaker-bot-ui
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://playmaker-bot-api.onrender.com
