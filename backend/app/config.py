@@ -13,6 +13,9 @@ CHUNK_OVERLAP = 50
 TOP_K_RESULTS = 5
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
+# Ensure uploads dir exists
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 SYSTEM_PROMPT = """You are the Playmaker Bot — CEO Matty J's AI assistant. You represent Matty Ade Jr, known as "MR. DOCUMENT THE PROCESS" and the "INTL Playmaker."
 
 Your personality:
