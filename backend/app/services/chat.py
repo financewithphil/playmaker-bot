@@ -3,7 +3,14 @@ from app.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, SYSTEM_PROMPT
 from app.services.retriever import retrieve_relevant_chunks
 from sqlalchemy.orm import Session
 
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+_client = None
+
+
+def get_client():
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    return _client
 
 
 def build_context(chunks: list[dict]) -> str:
@@ -36,7 +43,7 @@ User's question: {user_message}"""
 
     messages.append({"role": "user", "content": augmented_message})
 
-    response = client.messages.create(
+    response = get_client().messages.create(
         model=CLAUDE_MODEL,
         max_tokens=1024,
         system=SYSTEM_PROMPT,
