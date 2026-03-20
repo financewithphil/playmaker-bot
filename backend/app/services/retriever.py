@@ -11,9 +11,9 @@ def retrieve_relevant_chunks(db: Session, query: str, top_k: int = TOP_K_RESULTS
     result = db.execute(
         text("""
             SELECT content, document_name, chunk_index,
-                   1 - (embedding <=> :embedding::vector) as similarity
+                   1 - (embedding <=> cast(:embedding as vector)) as similarity
             FROM document_chunks
-            ORDER BY embedding <=> :embedding::vector
+            ORDER BY embedding <=> cast(:embedding as vector)
             LIMIT :limit
         """),
         {"embedding": embedding_str, "limit": top_k},
